@@ -1,0 +1,9 @@
+{
+        "name": "web_crawler",
+        "version": "1.0.0",
+        "author": "Brannon Dorsey <brannon@brannondorsey.com>",
+        "dependencies": {
+                "jsdom": "0.8.11",
+                "request": "2.33.0"
+        }
+}
