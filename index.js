@@ -6,8 +6,13 @@ var request = require('request'),
 var args = process.argv;
 
 var searchedUrls = []; //holds the urls that have been searched. Switch to 'pages' soon...
-var maxDepth = 100; //limits the number of crawls
-var currentDepth = 0; //holds the current depth
+var returnedUrls = [];
+var pages = [];
+
+var maxCrawls = 1000; //limits the number of crawls
+
+//------------------------------------------------------------------------
+//ON RUN
 
 //if startUrl and stopUrl were included as arguments from the command-line
 if(typeof args[2] !== 'undefined' &&
@@ -16,51 +21,65 @@ if(typeof args[2] !== 'undefined' &&
 	var startUrl = args[2].replace('https://', '').replace('http://', '');
 	var stopUrl  = args[3].replace('https://', '').replace('http://', '');
 
+	if(typeof args[4] !== 'undefined') maxCrawls = parseInt(args[4]);
+
 	//start scraping web pages recursively...
-	crawl('http://' + startUrl);
+	crawl('http://' + startUrl, pages);
 
 }else{
 	console.log('Provide the sites dummy!');
 } 
 
 //------------------------------------------------------------------------
+//EVENTS
 
-function crawl(url){
+function onStopUrlReached(){
 
-	if(currentDepth <= maxDepth){
+	console.log("Found " + stopUrl + " (oh boy cool!)");
+	console.log("Searched " + searchedUrls.length + " urls");
+	console.log("Only " + returnedUrls.length + " were returned");
+
+	process.exit();
+}
+
+//------------------------------------------------------------------------
+//FUNCTIONS
+function crawl(url, array){
+
+	if(searchedUrls.length <= maxCrawls){
 
 		request({ uri: url}, function (error, response, body) {
 		  	
-			if (error) {
-			    console.log('Error when contacting ' + url)
-			}else{
+			if(!error &&
+				response.statusCode == 200 &&
+				typeof body !== 'undefined'){
+
 				jsdom.env({
 				    html: body,
 				    scripts: [
 				      'http://code.jquery.com/jquery-1.5.min.js'
 				    ],
 				    done: function (err, window) {
+				    	if(typeof window.jQuery !== 'undefined'){
 
-					    var $ = window.jQuery;
+				    		returnedUrls.push(url);
+				    		var $ = window.jQuery;
+				    		console.log(url);
+						    $('a').each(function(){
+						    	eachLinkCallback($(this), url, array);
+						    });
 
-					    $('a').each(function(){
-					    	eachLinkCallback($(this), url);
-					    });
-
-					    //release the memory assosciated with this window
-					    window.close();
-					  }
+						    //release the memory assosciated with this window
+						    window.close();
+						}
+				    } 
 				});
 			}  
-		});
-	}else{
-		console.log(searchedUrls);
-		console.log("crawl depth reached");
-		process.exit();
+		}).setMaxListeners(0); //infinity;
 	}
 }
 
-function eachLinkCallback(linkObj, parentUrl){
+function eachLinkCallback(linkObj, parentUrl, array){
 
 	var url = linkObj.attr('href');
 	if(typeof url !== 'undefined' &&
@@ -77,32 +96,45 @@ function eachLinkCallback(linkObj, parentUrl){
 			url = parentUrl + '/' + url;
 		}
 
-		// console.log(url);
 		var urlObj = urlModule.parse(url);
 		var formattedUrl = urlObj.hostname + urlObj.pathname; 
 
 		//remove trailing forward slash. This has to happen after formatting the url
 		if(formattedUrl.charAt( formattedUrl.length - 1 ) == "/"){
 			formattedUrl = formattedUrl.slice(0, -1);
-			// console.log("I DID THIS");
 		}
 		
 		//if the end is reached
 		if(formattedUrl == stopUrl){
-
-			console.log("Found " + stopUrl);
-			console.log("it took " + currentDepth + " pings");
-			process.exit();
-
+			array[formattedUrl] = [];
+			onStopUrlReached();
 		}else if(searchedUrls.indexOf(formattedUrl) == -1){
 
 			searchedUrls.push(formattedUrl);
-			//if this url hasn't already been crawled..
-			crawl("http://" + formattedUrl); //recurse the function
-			currentDepth++;
+			array[formattedUrl] = [];
 
-		}else{
-			// console.log("link already searched");
+			//if this url hasn't already been crawled..
+			crawl("http://" + formattedUrl, array[formattedUrl]); //recurse the function
+
 		}
 	}
 }
+
+function traverse(array, callback){
+
+	if(array instanceof Array){
+		for(var key in array){
+			callback(key, array[key], array);
+			traverse(array[key], callback);
+		}
+	}
+}
+
+function assocArrayLength(obj){
+
+    var size = 0, key;
+    for (key in obj) {
+        if (obj.hasOwnProperty(key)) size++;
+    }
+    return size;
+};
