@@ -37,7 +37,7 @@ function onStopUrlReached(){
 
 	console.log("Found " + stopUrl + " (oh boy cool!)");
 	console.log("Searched " + searchedUrls.length + " urls");
-	console.log("Only " + returnedUrls.length + " were returned");
+	console.log("Only " + returnedUrls.length + "/" + searchedUrls.length + " were returned before " + stopUrl + " was found");
 
 	process.exit();
 }
@@ -62,9 +62,11 @@ function crawl(url, array){
 				    done: function (err, window) {
 				    	if(typeof window.jQuery !== 'undefined'){
 
+				    		console.log("Received: " + url);
 				    		returnedUrls.push(url);
+				    		
 				    		var $ = window.jQuery;
-				    		console.log(url);
+				    		
 						    $('a').each(function(){
 						    	eachLinkCallback($(this), url, array);
 						    });
@@ -74,6 +76,8 @@ function crawl(url, array){
 						}
 				    } 
 				});
+
+				console.log("Fetching: " + url);
 			}  
 		}).setMaxListeners(0); //infinity;
 	}
